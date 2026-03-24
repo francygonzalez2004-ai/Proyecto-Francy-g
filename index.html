@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Francy González - Tienda Real</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js" type="module"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .product-card:hover { transform: translateY(-5px); transition: 0.3s; }
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8); display: flex; justify-content: center;
+            align-items: center; z-index: 1000;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <!-- Loading Screen -->
+    <div id="loading" class="loading-overlay">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-pink-600"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-pink-600">Francy González</h1>
+            <div class="flex gap-4 items-center">
+                <button onclick="togglePanel('seller-panel')" class="bg-pink-100 text-pink-600 px-4 py-2 rounded-full font-semibold hover:bg-pink-200">
+                    <i class="fas fa-plus"></i> <span class="hidden md:inline">Publicar</span>
+                </button>
+                <div class="relative cursor-pointer" onclick="togglePanel('cart-panel')">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </div>
+                <div id="user-info" class="hidden text-xs text-gray-500"></div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h2 class="text-3xl font-light mb-2">Colección de Temporada</h2>
+            <div class="h-1 w-20 bg-pink-500"></div>
+        </div>
+
+        <!-- Catalog Grid -->
+        <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Products will be loaded here -->
+        </div>
+    </main>
+
+    <!-- Seller Panel (Modal) -->
+    <div id="seller-panel" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-700">Publicar Nueva Prenda</h3>
+                <button onclick="togglePanel('seller-panel')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="product-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nombre de la Prenda</label>
+                    <input type="text" id="p-name" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-pink-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Precio ($)</label>
+                    <input type="number" id="p-price" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-pink-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">URL de Foto (o video)</label>
+                    <input type="url" id="p-media" placeholder="https://..." required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-pink-400 outline-none">
+                    <p class="text-[10px] text-gray-500 mt-1">Sube tu foto a Imgur o usa enlaces de redes sociales.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Tipo de Contenido</label>
+                    <select id="p-type" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-pink-400 outline-none">
+                        <option value="image">Imagen</option>
+                        <option value="video">Video (MP4/Youtube/Reel)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Descripción / Tallas</label>
+                    <textarea id="p-desc" rows="3" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-pink-400 outline-none"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-pink-600 text-white py-3 rounded-lg font-bold hover:bg-pink-700 transition">
+                    Publicar Ahora
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cart Panel -->
+    <div id="cart-panel" class="fixed inset-y-0 right-0 w-full max-w-xs bg-white shadow-2xl hidden z-[60] p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xl font-bold">Tu Carrito</h3>
+            <button onclick="togglePanel('cart-panel')" class="text-gray-400"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="cart-items" class="space-y-4 mb-6">
+            <!-- Items go here -->
+        </div>
+        <div class="border-t pt-4">
+            <div class="flex justify-between font-bold text-lg mb-4">
+                <span>Total:</span>
+                <span id="cart-total">$0.00</span>
+            </div>
+            <button onclick="checkout()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+                Finalizar Compra
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'francy-fashion';
+
+        let currentUser = null;
+        let cart = [];
+
+        // Auth Logic
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth error:", error);
+                document.getElementById('loading').innerHTML = `<p class='text-red-500 p-4 text-center'>Error al conectar. Recarga la página.</p>`;
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('user-info').innerText = `ID: ${user.uid.substring(0,8)}`;
+                document.getElementById('user-info').classList.remove('hidden');
+                loadProducts();
+            }
+            document.getElementById('loading').classList.add('hidden');
+        });
+
+        // Firestore Data Management
+        const productsRef = collection(db, 'artifacts', appId, 'public', 'data', 'clothes');
+
+        function loadProducts() {
+            onSnapshot(productsRef, (snapshot) => {
+                const grid = document.getElementById('product-grid');
+                grid.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-400">No hay prendas publicadas aún.</div>`;
+                    return;
+                }
+
+                snapshot.forEach((docSnap) => {
+                    const product = docSnap.data();
+                    const id = docSnap.id;
+                    const card = createProductCard(id, product);
+                    grid.appendChild(card);
+                });
+            }, (error) => {
+                console.error("Snapshot error:", error);
+            });
+        }
+
+        function createProductCard(id, data) {
+            const div = document.createElement('div');
+            div.className = "product-card bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100";
+            
+            let mediaContent = data.type === 'video' 
+                ? `<video src="${data.media}" class="w-full h-64 object-cover" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>`
+                : `<img src="${data.media}" class="w-full h-64 object-cover" alt="${data.name}" onerror="this.src='https://via.placeholder.com/400x600?text=Prenda+Fashion'">`;
+
+            div.innerHTML = `
+                <div class="relative group">
+                    ${mediaContent}
+                    <div class="absolute top-2 right-2 flex gap-2">
+                        ${data.sellerId === currentUser?.uid ? `
+                            <button class="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition" onclick="deleteProduct('${id}')">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="p-4">
+                    <h3 class="font-bold text-lg mb-1">${data.name}</h3>
+                    <p class="text-gray-500 text-sm mb-3 line-clamp-2">${data.description || 'Sin descripción'}</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xl font-bold text-pink-600">$${data.price}</span>
+                        <button class="bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-pink-700" 
+                            onclick="addToCart('${id}', '${data.name}', ${data.price}, '${data.media}')">
+                            Agregar
+                        </button>
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        // Global functions (exposed to window)
+        window.togglePanel = (id) => {
+            const el = document.getElementById(id);
+            el.classList.toggle('hidden');
+        };
+
+        window.deleteProduct = async (id) => {
+            if (confirm("¿Estás seguro de eliminar esta publicación?")) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'clothes', id));
+            }
+        };
+
+        window.addToCart = (id, name, price, img) => {
+            cart.push({ id, name, price, img });
+            updateCartUI();
+            // Show toast/message instead of alert
+            const btn = event.target;
+            const original = btn.innerText;
+            btn.innerText = "¡Añadido!";
+            btn.classList.replace('bg-pink-600', 'bg-green-600');
+            setTimeout(() => {
+                btn.innerText = original;
+                btn.classList.replace('bg-green-600', 'bg-pink-600');
+            }, 1500);
+        };
+
+        function updateCartUI() {
+            const itemsList = document.getElementById('cart-items');
+            const count = document.getElementById('cart-count');
+            const totalEl = document.getElementById('cart-total');
+            
+            count.innerText = cart.length;
+            itemsList.innerHTML = '';
+            
+            let total = 0;
+            cart.forEach((item, index) => {
+                total += item.price;
+                itemsList.innerHTML += `
+                    <div class="flex items-center gap-3 border-b pb-2">
+                        <img src="${item.img}" class="w-12 h-12 rounded object-cover">
+                        <div class="flex-1">
+                            <p class="text-sm font-bold">${item.name}</p>
+                            <p class="text-pink-600 font-bold">$${item.price}</p>
+                        </div>
+                        <button onclick="removeFromCart(${index})" class="text-gray-400 hover:text-red-500"><i class="fas fa-times text-xs"></i></button>
+                    </div>
+                `;
+            });
+            totalEl.innerText = `$${total.toFixed(2)}`;
+        }
+
+        window.removeFromCart = (index) => {
+            cart.splice(index, 1);
+            updateCartUI();
+        };
+
+        window.checkout = () => {
+            if (cart.length === 0) return alert("Tu carrito está vacío");
+            const text = cart.map(i => `- ${i.name} ($${i.price})`).join('%0A');
+            const total = document.getElementById('cart-total').innerText;
+            const message = `Hola Francy, quiero comprar:%0A${text}%0ATotal: ${total}`;
+            window.open(`https://wa.me/?text=${message}`, '_blank');
+        };
+
+        // Form Handling
+        document.getElementById('product-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const newProduct = {
+                name: document.getElementById('p-name').value,
+                price: parseFloat(document.getElementById('p-price').value),
+                media: document.getElementById('p-media').value,
+                type: document.getElementById('p-type').value,
+                description: document.getElementById('p-desc').value,
+                sellerId: currentUser.uid,
+                createdAt: Date.now()
+            };
+
+            try {
+                await addDoc(productsRef, newProduct);
+                document.getElementById('product-form').reset();
+                togglePanel('seller-panel');
+            } catch (err) {
+                console.error("Upload error:", err);
+                alert("Error al publicar. Verifica tu conexión.");
+            }
+        });
+
+        initAuth();
+    </script>
+</body>
+</html>
